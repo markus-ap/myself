@@ -136,11 +136,12 @@ def update_user(user: str):
     servers = json.loads(open("followers_info.json", "r").read())["servers"]
     server_count = len(servers)
 
-    host = "skvip.lol"
-    url = f"https://{host}/inbox"
-    print(f"0/{server_count}", url, end="\t")
-    response = send_signed_request(url, payload, private_key, host)
-    print(response.status_code)
+    hosts = ["skvip.lol", "prosa.skvip.lol", "pixelfed.babb.no", "bookwyrm.social"]
+    for host in hosts:
+        url = f"https://{host}/inbox"
+        print(f"0/{server_count}", url, end="\t")
+        response = send_signed_request(url, payload, private_key, host)
+        print(response.status_code)
 
     index = 1
     for host in servers:
