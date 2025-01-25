@@ -7,8 +7,8 @@
         "https://bookwyrm.social/@mvrkws",
         "https://prosa.skvip.lol/@markus",
         "https://codeberg.org/mvrkws",
-        "https://pixelfed.babb.no/markus",
-        "https://loops.com/@markus"
+        "https://pixelfed.babb.no/@markus",
+        "https://loops.video/@markus"
     ],
     "outboxObject": {
         "@context": "https://www.w3.org/ns/activitystreams",
