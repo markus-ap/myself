@@ -1,0 +1,22 @@
+{
+    "https://myself.social/b/markus/o/0":
+        {
+            "@context": "https://www.w3.org/ns/activitystreams",
+            "id": "https://myself.social/b/markus/o/0",
+            "type": "Note",
+            "published": "1991-12-25T07:50:00Z",
+            "attributedTo": "https://myself.social/b/markus",
+            "content": "<p>Hei, verda!</p> <p>Eg har blitt født.</p>",
+            "to": "https://www.w3.org/ns/activitystreams#Public"
+        },
+    "https://myself.social/b/markus/o/1":
+        {
+            "@context": "https://www.w3.org/ns/activitystreams",
+            "id": "https://myself.social/b/markus/o/1",
+            "type": "Note",
+            "published": "2023-08-21T19:36:00Z",
+            "attributedTo": "https://myself.social/b/markus",
+            "content": "<p>Hallo!</p><p>På <a href\"https://myself.social/@markrus\">myself.social/@markus</a> kan du verifisere kven eg er på andre vevsidar.</p><p>Gå til <a href\"https://myself.social\">myself.social</a> for å lese meir. Eventuelt kan du lese den, forløpig, dårlege kjeldekoden på <a href\"https://codeberg.org/mvrkws/activitypub-passport\">kodeberget mitt</a>.</p>",
+            "to": "https://www.w3.org/ns/activitystreams#Public"
+        }
+}

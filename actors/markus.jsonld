@@ -1,0 +1,64 @@
+{
+    "@id": "https://myself.social/b/markus",
+    "profile": "https://myself.social/b/markus",
+    "outbox": "https://myself.social/b/markus/outbox",
+    "links": [
+        "https://skvip.lol/@markus",
+        "https://bookwyrm.social/@mvrkws",
+        "https://prosa.skvip.lol/@markus",
+        "https://codeberg.org/mvrkws",
+        "https://pixelfed.babb.no/markus",
+        "https://loops.com/@markus"
+    ],
+    "outboxObject": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://myself.social/b/markus/outbox",
+        "type": "OrderedCollection",
+        "totalItems": 2,
+        "orderedItems": [
+            {
+                "id": "https://myself.social/b/markus/0",
+                "type": "Create",
+                "actor": "https://myself.social/b/markus",
+                "object": {
+                    "id": "https://myself.social/b/markus/id/0",
+                    "type": "Note",
+                    "content": "https://skvip.lol/@markus"
+                }
+            },
+            {
+                "id": "https://myself.social/b/markus/1",
+                "type": "Create",
+                "actor": "https://myself.social/b/markus",
+                "object": {
+                    "id": "https://myself.social/b/markus/id/1",
+                    "type": "Note",
+                    "content": "https://bookwyrm.social/@mvrkws"
+                }
+            },
+            {
+                "id": "https://myself.social/b/markus/2",
+                "type": "Create",
+                "actor": "https://myself.social/b/markus",
+                "object": {
+                    "id": "https://myself.social/b/markus/id/2",
+                    "type": "Note",
+                    "content": "https://literature.cafe/u/markus"
+                }
+            },
+            {
+                "id": "https://myself.social/b/markus/3",
+                "type": "Create",
+                "actor": "https://myself.social/b/markus",
+                "object": {
+                    "id": "https://myself.social/b/markus/id/3",
+                    "type": "Note",
+                    "content": "https://codeberg.org/mvrkws"
+                }
+            }
+        ]
+    },
+    "followers": [
+        "https://skvip.lol/users/markus"
+    ]
+}

@@ -1,0 +1,7 @@
+{
+    "@context": "https://www.w3.org/ns/activitystreams",
+    "id": "https://myself.social/b/markus/followers",
+    "type": "OrderedCollection",
+    "totalItems": 0,
+    "first": "https://myself.social/b/markus/followers?page=1"
+}

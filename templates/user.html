@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>    
+    <link rel="stylesheet" href="{{ url_for('static', filename='user_style.css') }}">
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+    <title>{{ shortname }} | myself.social</title>
+    {% include 'meta.html' %}
+</head>
+<body>
+
+    <div class="container">
+        <div class="id-card">
+            <h1><span id="all-verified">⏳</span> {{ name }}</h1>
+            {% if external %}
+                <p id="external">Verifying against <span id="guess">⏳</span></p>
+            {% endif %}
+            <ul>
+                {% for post in posts %}
+                    <li class="post">
+                        <span class="verification-icon">⏳</span>
+                        <a rel="me" href="{{ post.link }}">{{ post.link }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+s
+    <script>
+        verifyPages("{{ external }}");
+
+        // Open login form on button click
+        const loginButton = document.getElementById("login-button");
+        const loginOverlay = document.getElementById("loginOverlay");
+
+        loginButton.addEventListener("click", () => {
+            loginOverlay.style.display = "flex";
+        });
+    </script>
+</body>
+</html>

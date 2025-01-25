@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>    
+    <link rel="stylesheet" href="{{ url_for('static', filename='user_style.css') }}">
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+    <title>{{ name }} | myself.social</title>
+</head>
+<body>
+    <div class="container">
+        <div class="id-card">
+            <h1>Not found - {{ name }}</h1>
+            <p>We're sorry. We failed to find something suitable for this request.</p>
+        </div>
+    </div>
+</body>
+</html>

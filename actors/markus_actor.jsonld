@@ -1,0 +1,126 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "@language": "nn"
+        }
+    ],
+    "@id": "https://myself.social/b/markus",
+    "attachment": [
+        {
+            "name": "skvip.lol",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://skvip.lol/@markus\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://skvip.lol/@markus</a>",
+            "verified_at": null
+        },
+        {
+            "name": "bookwyrm.social",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://bookwyrm.social/@mvrkws\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://bookwyrm.social/@mvrkws</a>",
+            "verified_at": null
+        },
+        {
+            "name": "literature.cafe (lemmy)",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://literature.cafe/u/markus\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://literature.cafe/u/markus</a>",
+            "verified_at": null
+        },
+        {
+            "name": "codeberg.org",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://codeberg.org/mvrkws\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://codeberg.org/mvrkws</a>",
+            "verified_at": null
+        },
+        {
+            "name": "nerdica.net (friendica)",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://nerdica.net/profile/markus\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://nerdica.net/profile/markus</a>",
+            "verified_at": null
+        },
+        {
+            "name": "pixelfed.babb.no",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://pixelfed.babb.no/markus\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://pixelfed.babb.no/markus</a>",
+            "verified_at": null
+        },
+        {
+            "name": "beehaw.org (lemmy)",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://beehaw.org/u/mvrkws\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://beehaw.org/u/mvrkws</a>",
+            "verified_at": null
+        }
+    ],
+    "discoverable": true,
+    "featured": "https://myself.social/b/markus/collections/featured",
+    "fields": [
+        {
+            "name": "skvip.lol",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://skvip.lol/@markus\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://skvip.lol/@markus</a>",
+            "verified_at": null
+        },
+        {
+            "name": "bookwyrm.social",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://bookwyrm.social/@mvrkws\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://bookwyrm.social/@mvrkws</a>",
+            "verified_at": null
+        },
+        {
+            "name": "literature.cafe (lemmy)",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://literature.cafe/u/markus\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://literature.cafe/u/markus</a>",
+            "verified_at": null
+        },
+        {
+            "name": "codeberg.org",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://codeberg.org/mvrkws\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://codeberg.org/mvrkws</a>",
+            "verified_at": null
+        },
+        {
+            "name": "nerdica.net (friendica)",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://nerdica.net/profile/markus\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://nerdica.net/profile/markus</a>",
+            "verified_at": null
+        },
+        {
+            "name": "pixelfed.babb.no",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://pixelfed.babb.no/markus\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://pixelfed.babb.no/markus</a>",
+            "verified_at": null
+        },
+        {
+            "name": "beehaw.org (lemmy)",
+            "type": "PropertyValue",
+            "value": "<a href=\"https://beehaw.org/u/mvrkws\" target=\"_blank\" rel=\"nofollow noopener noreferrer me\">https://beehaw.org/u/mvrkws</a>",
+            "verified_at": null
+        }
+    ],
+    "followers": "https://myself.social/b/markus/followers",
+    "following": "https://myself.social/b/markus/following",
+    "icon": {
+        "mediaType": "image/jpeg",
+        "type": "Image",
+        "url": "https://myself.social/static/img/markus.jpeg"
+    },
+    "id": "https://myself.social/b/markus",
+    "image": {
+        "mediaType": "image/jpeg",
+        "type": "Image",
+        "url": "https://myself.social/static/img/markus_header.jpeg"
+    },
+    "inbox": "https://myself.social/b/markus/inbox",
+    "manuallyApprovesFollowers": true,
+    "name": "Markus 🌱",
+    "preferredUsername": "markus",
+    "publicKey": {
+        "id": "https://myself.social/b/markus#publicKey",
+        "owner": "https://myself.social/b/markus",
+        "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhP56rv42oMqEo7VDYiYL\nDzRSEmiu/fDaHNr+5A6PuRHKooU8/KkN4+MeE4KmGlV7LDw5sCUU8pvCW+rW0i9s\nGNq1DrcFbCLpAQmxq+PfpPVoOas7q0cBaSgZ7WcbC13DPW4qcmSDMBixMzt4ocz6\n+fvr4ZImkko4dEBqV+5RHzfRnvIFtW8bRs5q/EvV4GbuQgPjOfG4THJD7ngDVvLt\nlBVlrM6V+IxXjAf5/NOs+7mwf7Bkiizuyw2zPSkEUgRzqtCzF9E7/OuU5oBitnmX\nOuJCLViwlAwaERoA21sR9pDRrhlPZ3NMrSYKboJCLTMTfLMv0L5uuzDBWQd6IxHQ\nowIDAQAB\n-----END PUBLIC KEY-----"
+    },
+    "published": "1991-12-25T07:50:00Z",
+    "summary": "<p>Hallo!</p><p>Dette er kontoen min for <a href=\"https://myself.social/k/MyselfSocial\" class=\"mention hashtag\" rel=\"tag\">#<span>MyselfSocial</span></a>.</p><p>Dette er ei teneste under utvikling, så det er litt ymse tilgjengeleg. Spesielt via Mastodon.</p> <p>Følg meg gjerne på <a href='https://skvip.lol/@markus' rel='me'>@markus@skvip.lol</a>.</p><p>Har alt gått bra er det fleire lenkjar her på profilen kor du kan følgje meg på tvers av veven. 🤔</p><p>Sjå profilen annleis på <a href=\"https://myself.social/@markus\" rel=\"me\">passet mitt</a> si side.",
+    "type": "Person",
+    "url": "https://myself.social/@markus"
+}
