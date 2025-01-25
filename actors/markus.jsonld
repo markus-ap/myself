@@ -4,10 +4,9 @@
     "outbox": "https://myself.social/b/markus/outbox",
     "links": [
         "https://skvip.lol/@markus",
-        "https://bookwyrm.social/@mvrkws",
         "https://prosa.skvip.lol/@markus",
-        "https://codeberg.org/mvrkws",
         "https://pixelfed.babb.no/@markus",
+        "https://bookwyrm.social/@mvrkws",
         "https://loops.video/@markus"
     ],
     "outboxObject": {
