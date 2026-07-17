@@ -3,16 +3,19 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
-import json, requests, bcrypt, uuid, os
+from urllib import robotparser
+import json, requests, bcrypt, uuid, os, time
 
-dev_ip = "192.168.68.107:5000"  
+dev_ip = "192.168.68.107:5000"
 domain = "myself.social"
 instance = f"https://{domain}"
-myself_headers = {"User-Agent": "myself.social"}
-timeout = 1
+user_agent = f"myself.social/0.1 (+{instance}/)"
+myself_headers = {"User-Agent": user_agent}
+timeout = 3
 
 app = Flask(__name__, static_folder="static")
-app.secret_key = "very-secret"
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(32).hex())
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400
 
 # login_manager = LoginManager()
 # login_manager.init_app(app)
@@ -20,8 +23,15 @@ app.secret_key = "very-secret"
 # class User(UserMixin):
 #     pass
 
+# users.json is re-read only when its mtime changes, instead of on every request
+_users_cache = {"mtime": None, "data": None}
+
 def get_users():
-    return json.loads(open("users.json", "r", encoding="utf8").read())
+    mtime = os.path.getmtime("users.json")
+    if _users_cache["mtime"] != mtime:
+        _users_cache["data"] = json.loads(open("users.json", "r", encoding="utf8").read())
+        _users_cache["mtime"] = mtime
+    return _users_cache["data"]
 
 def write_users(users: dict):
     open("users.json", "w", encoding="utf8").write(json.dumps(users, indent=4))
@@ -84,14 +94,9 @@ def validate_login(username: str, password: str):
     if username not in users: return False
     user = users[username]
 
-    stored_salt = user["salt"].encode("utf8")
     stored_hash = user["password"].encode("utf8")
 
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt=stored_salt)
-
-    if hashed_password == stored_hash:
-        return True
-    return False
+    return bcrypt.checkpw(password.encode("utf-8"), stored_hash)
 
 # @app.route("/check", methods=["GET"])
 # @login_required
@@ -112,22 +117,27 @@ def generate_random_string(length):
     
 def register_user(username: str, password: str):
     users = get_users()
+    if username in users:
+        return False
     salt = bcrypt.gensalt()
     password = password.encode("utf8")
     hashed_password = bcrypt.hashpw(password, salt)
     users[username] = {'password': hashed_password.decode("utf8"), "salt": salt.decode("utf8")}
     write_users(users)
+    return True
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
-        register_user(username, password)
-        
-        return redirect(url_for('login'))  # Redirect to login page after successful registration
-    
+
+        if not register_user(username, password):
+            return render_template('signup.html', error="That username is already taken."), 409
+
+        # The /login route is currently disabled, so land on the front page instead
+        return redirect("/")
+
     return render_template('signup.html')
 
 
@@ -135,6 +145,41 @@ def signup():
 @app.route("/")
 def main():
     return render_template("index.html")
+
+@app.route("/robots.txt")
+def robots_txt():
+    return app.send_static_file("robots.txt")
+
+# Cached robots.txt rules for the remote sites we fetch during verification,
+# so repeated verifications don't re-download robots.txt on every request.
+_robots_cache = {}
+ROBOTS_CACHE_TTL = 3600
+
+def robots_allowed(url: str, session: requests.Session) -> bool:
+    """Check the target site's robots.txt before fetching a page (RFC 9309:
+    4xx or missing robots.txt means allowed, 5xx means disallowed)."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return False
+    base = f"{parsed.scheme}://{parsed.netloc}"
+
+    cached = _robots_cache.get(base)
+    if cached is None or time.time() - cached[1] > ROBOTS_CACHE_TTL:
+        parser = robotparser.RobotFileParser()
+        try:
+            response = session.get(f"{base}/robots.txt", headers=myself_headers, timeout=timeout)
+            if response.status_code == 200:
+                parser.parse(response.text.splitlines())
+            elif response.status_code >= 500:
+                parser.disallow_all = True
+            else:
+                parser.allow_all = True
+        except requests.RequestException:
+            parser.allow_all = True
+        _robots_cache[base] = (parser, time.time())
+        cached = _robots_cache[base]
+
+    return cached[0].can_fetch(user_agent, url)
 
 @app.route("/test")
 def test():
@@ -239,8 +284,9 @@ def followers_json(actor: str):
 def create():
     data = request.json
     links = data["links"]
+    target = data.get("target", f"{instance}/@{data['username']}")
 
-    items, all_verified = verify_pages(links)
+    items, all_verified = verify_pages(links, target)
 
     return render_template("user.html", verified = all_verified, posts=items, name=data["username"])
 
@@ -349,7 +395,7 @@ def profile(actor: str):
     users = get_users()
     if actor not in users:
         print(f"'{actor}' does not exist.")
-        return render_template("no_user.html", name=f"@{actor}@{domain}", shortname=f"@{actor}")
+        return render_template("no_user.html", name=f"@{actor}@{domain}", shortname=f"@{actor}"), 404
     
     print(f"'{actor}' does exist.")
     user_file = json.loads(open(f"./actors/{actor}.jsonld", "r").read())
@@ -420,12 +466,17 @@ def verify_page(link, target):
         target = target.replace(dev_ip, domain)
     if domain in link:
         verified = verify_internal_user(link.split("@")[-1], target)
-        return {"link": link, "verified": verified, "site": "myself"}
+        return {"link": link, "verified": 1 if verified else -1, "site": "myself"}
 
     item = {"link": link, "verified": False, "site": None}
     print(f"Checking if {link} contains reference to {target}...")
     try:
         with requests.Session() as session:
+            if not robots_allowed(link, session):
+                print(f"robots.txt of '{link}' disallows fetching; skipping verification.")
+                item["site"] = "robots.txt disallows"
+                return item
+
             response = session.get(link, headers=myself_headers, timeout=timeout)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, "html.parser")
@@ -475,6 +526,10 @@ def get_type_software(link: str, session = None):
         session = requests.Session()
 
     try:
+        if not robots_allowed(link, session):
+            print(f"robots.txt disallows fetching '{link}'.")
+            return None
+
         response = session.get(link, headers = myself_headers, timeout=timeout)
         if response.status_code == 200:
             response = json.loads(response.text)
@@ -503,7 +558,7 @@ def nodeinfo():
         "links": [
             {
                 "rel": "http://nodeinfo.diaspora.software/ns/schema/2.0",
-                "href": f"{domain}/nodeinfo/2.0"
+                "href": f"{instance}/nodeinfo/2.0"
             }
         ]
     }), 200
@@ -605,8 +660,8 @@ def get_user(user: str):
 def get_actor(actor: str):
     return json.loads(open(f"./actors/{actor}_actor.jsonld", "r").read())
 
-def save_user(user: dict):
-    open(f"./actors/{actor}.jsonld", "w").write(json.dumps(user))
+def save_user(username: str, user: dict):
+    open(f"./actors/{username}.jsonld", "w").write(json.dumps(user))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8081)

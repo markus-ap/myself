@@ -46,34 +46,39 @@ const verifyPages = async (ext) => {
             })
             .then(response => response.json())
             .then(data => {
+                const setStatus = (element, icon, label) => {
+                    element.textContent = icon;
+                    element.title = label;
+                    element.setAttribute("aria-label", label);
+                };
+
                 if(data.verified == 1){
-                    verificationIcon.textContent = '🟢';
-                    verificationIcon.title = "Page verified."
+                    setStatus(verificationIcon, '🟢', "Page verified.");
                     greens = greens + 1;
                 } else if (data.verified == -1) {
-                    verificationIcon.textContent = '🔴';
-                    verificationIcon.title = "Page not verified."
-                } else{                    
-                    verificationIcon.textContent = '🟡';
-                    verificationIcon.title = "Page partially verified."
+                    setStatus(verificationIcon, '🔴', "Page not verified.");
+                } else{
+                    setStatus(verificationIcon, '🟡', "Page partially verified.");
                     yellows = yellows + 1;
                 }
                 let system = data.site;
                 if(system == null)
                     system = "–"
-                
-                postItem.innerHTML += "<span class=\"site\">" + system + "</span>"
+
+                // textContent (not innerHTML): the server type string comes from a
+                // remote server's nodeinfo and must not be parsed as HTML
+                const siteSpan = document.createElement("span");
+                siteSpan.className = "site";
+                siteSpan.textContent = system;
+                postItem.appendChild(siteSpan);
 
                 let totals = greens + yellows;
                 if(greens == postItems.length){
-                    allVerified.innerHTML = "🟢"
-                    allVerified.title = "All pages verified."
+                    setStatus(allVerified, '🟢', "All pages verified.");
                 } else if(totals == postItems.length){
-                    allVerified.innerHTML = "🟡"
-                    allVerified.title = "All pages at least partially verified."
+                    setStatus(allVerified, '🟡', "All pages at least partially verified.");
                 } else {
-                    allVerified.innerHTML = "🔴"
-                    allVerified.title = "Some pages not verified."
+                    setStatus(allVerified, '🔴', "Some pages not verified.");
                 }
             })
             .catch(error => {
