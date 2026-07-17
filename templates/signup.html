@@ -17,5 +17,14 @@
         <input type="password" id="password" name="password" autocomplete="new-password"><br>
         <input type="submit" value="Sign up">
     </form>
+
+    <h2>Or sign up with Mastodon</h2>
+    <p>We'll send you to your home server to approve access. No password is stored here,
+       and the link to your Mastodon profile is verified automatically — you just proved it's yours.</p>
+    <form method="POST" action="/auth/mastodon">
+        <label for="instance">Your Mastodon handle or server</label>
+        <input type="text" id="instance" name="instance" placeholder="you@mastodon.social"><br>
+        <input type="submit" value="Continue with Mastodon">
+    </form>
 </body>
 </html>

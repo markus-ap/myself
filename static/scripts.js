@@ -18,23 +18,60 @@ const verifyPages = async (ext) => {
 
 
     const postItems = document.querySelectorAll('.post');
+    const allVerified = document.getElementById("all-verified");
+
+    const setStatus = (element, icon, label) => {
+        element.textContent = icon;
+        element.title = label;
+        element.setAttribute("aria-label", label);
+    };
+
+    const addSiteLabel = (postItem, system) => {
+        // textContent (not innerHTML): the server type string comes from a
+        // remote server's nodeinfo and must not be parsed as HTML
+        const siteSpan = document.createElement("span");
+        siteSpan.className = "site";
+        siteSpan.textContent = system;
+        postItem.appendChild(siteSpan);
+    };
+
+    const updateSummary = () => {
+        const totals = greens + yellows;
+        if(greens == postItems.length){
+            setStatus(allVerified, '🟢', "All pages verified.");
+        } else if(totals == postItems.length){
+            setStatus(allVerified, '🟡', "All pages at least partially verified.");
+        } else {
+            setStatus(allVerified, '🔴', "Some pages not verified.");
+        }
+    };
+
     postItems.forEach(async postItem => {
         // Get the anchor element inside the list item
         const linkElement = postItem.querySelector('a');
 
         // Get the verification icon span inside the list item
-        const verificationIcon = postItem.querySelector('.verification-icon');    
-        let allVerified = document.getElementById("all-verified");
+        const verificationIcon = postItem.querySelector('.verification-icon');
+
+        // Links whose ownership was proven by logging in with the account
+        // (e.g. Mastodon OAuth) are verified without a network round-trip
+        if (postItem.dataset.preverified) {
+            setStatus(verificationIcon, '🟢', "Ownership verified via Mastodon login.");
+            addSiteLabel(postItem, "mastodon login");
+            greens = greens + 1;
+            updateSummary();
+            return;
+        }
 
         // Get the post link from the anchor element's href attribute
-        const postLink = linkElement.getAttribute('href');     
+        const postLink = linkElement.getAttribute('href');
 
         const endpointUrl = `/verify`;
 
-        fetch(endpointUrl, 
+        fetch(endpointUrl,
             {
                 method: "POST",
-                headers: 
+                headers:
                 {
                     "Content-Type": "application/json"
                 },
@@ -46,12 +83,6 @@ const verifyPages = async (ext) => {
             })
             .then(response => response.json())
             .then(data => {
-                const setStatus = (element, icon, label) => {
-                    element.textContent = icon;
-                    element.title = label;
-                    element.setAttribute("aria-label", label);
-                };
-
                 if(data.verified == 1){
                     setStatus(verificationIcon, '🟢', "Page verified.");
                     greens = greens + 1;
@@ -61,25 +92,8 @@ const verifyPages = async (ext) => {
                     setStatus(verificationIcon, '🟡', "Page partially verified.");
                     yellows = yellows + 1;
                 }
-                let system = data.site;
-                if(system == null)
-                    system = "–"
-
-                // textContent (not innerHTML): the server type string comes from a
-                // remote server's nodeinfo and must not be parsed as HTML
-                const siteSpan = document.createElement("span");
-                siteSpan.className = "site";
-                siteSpan.textContent = system;
-                postItem.appendChild(siteSpan);
-
-                let totals = greens + yellows;
-                if(greens == postItems.length){
-                    setStatus(allVerified, '🟢', "All pages verified.");
-                } else if(totals == postItems.length){
-                    setStatus(allVerified, '🟡', "All pages at least partially verified.");
-                } else {
-                    setStatus(allVerified, '🔴', "Some pages not verified.");
-                }
+                addSiteLabel(postItem, data.site == null ? "–" : data.site);
+                updateSummary();
             })
             .catch(error => {
                 console.log(error);

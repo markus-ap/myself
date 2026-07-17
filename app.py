@@ -1,11 +1,12 @@
-from flask import Flask, Response, request, jsonify, render_template, redirect, url_for
+from flask import Flask, Response, request, jsonify, render_template, redirect, url_for, session
 # from flask_login import UserMixin, login_user, login_required, logout_user, current_user
 from flask_cors import CORS
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
 from urllib import robotparser
-import json, requests, bcrypt, uuid, os, time, threading
+import json, requests, bcrypt, uuid, os, time, threading, secrets
 
+import accounts
 import federation
 
 dev_ip = "192.168.68.107:5000"
@@ -15,8 +16,24 @@ user_agent = f"myself.social/0.1 (+{instance}/)"
 myself_headers = {"User-Agent": user_agent}
 timeout = 3
 
+# Where OAuth callbacks land; must be the public URL of this deployment.
+base_url = os.environ.get("BASE_URL", instance)
+
+def load_secret_key():
+    """A per-process random key breaks session cookies (OAuth state) across
+    gunicorn workers, so persist one to disk unless SECRET_KEY is set."""
+    key = os.environ.get("SECRET_KEY")
+    if key:
+        return key
+    try:
+        with open(".secret_key", "x") as key_file:
+            key_file.write(os.urandom(32).hex())
+    except FileExistsError:
+        pass
+    return open(".secret_key").read().strip()
+
 app = Flask(__name__, static_folder="static")
-app.secret_key = os.environ.get("SECRET_KEY", os.urandom(32).hex())
+app.secret_key = load_secret_key()
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400
 
 # login_manager = LoginManager()
@@ -100,6 +117,9 @@ def validate_login(username: str, password: str):
     if username not in users: return False
     user = users[username]
 
+    # accounts created via Mastodon login have no password to check
+    if "password" not in user: return False
+
     stored_hash = user["password"].encode("utf8")
 
     return bcrypt.checkpw(password.encode("utf-8"), stored_hash)
@@ -145,6 +165,82 @@ def signup():
         return redirect("/")
 
     return render_template('signup.html')
+
+@app.route("/auth/mastodon", methods=["POST"])
+def mastodon_auth_start():
+    host = accounts.normalize_instance(request.form.get("instance", ""))
+    if host is None:
+        return render_template("signup.html", error="That doesn't look like a Mastodon handle or server."), 400
+
+    redirect_uri = f"{base_url}/auth/mastodon/callback"
+    try:
+        client = accounts.get_oauth_client(host, redirect_uri, myself_headers)
+    except (requests.RequestException, KeyError, ValueError) as error:
+        print(f"Failed to register OAuth app on {host}: {error}")
+        return render_template("signup.html", error=f"Could not talk to {host}. Is it a Mastodon server?"), 502
+
+    state = secrets.token_urlsafe(32)
+    session["oauth_state"] = state
+    session["oauth_instance"] = host
+    return redirect(accounts.authorize_url(host, client, state))
+
+@app.route("/auth/mastodon/callback")
+def mastodon_auth_callback():
+    state = session.pop("oauth_state", None)
+    host = session.pop("oauth_instance", None)
+    if not state or not host or request.args.get("state") != state:
+        return render_template("signup.html", error="The login attempt expired or was tampered with. Please try again."), 400
+    if "code" not in request.args:
+        # the user denied the authorization request on their home server
+        return redirect("/signup")
+
+    redirect_uri = f"{base_url}/auth/mastodon/callback"
+    try:
+        client = accounts.get_oauth_client(host, redirect_uri, myself_headers)
+        token = accounts.exchange_code(host, client, request.args["code"], myself_headers)
+        credentials = accounts.fetch_credentials(host, token, myself_headers)
+        accounts.revoke_token(host, client, token, myself_headers)
+    except (requests.RequestException, KeyError, ValueError) as error:
+        print(f"Mastodon OAuth against {host} failed: {error}")
+        return render_template("signup.html", error=f"Signing in with {host} failed. Please try again."), 502
+
+    return create_mastodon_account(host, credentials)
+
+def create_mastodon_account(host: str, credentials: dict):
+    """Create (or sign back into) the account belonging to an OAuth-verified
+    Mastodon identity. The Mastodon profile link starts out verified, since
+    the person just proved control of that account by logging into it."""
+    mastodon_username = credentials.get("username", "")
+    if not accounts.valid_username(mastodon_username):
+        return render_template("signup.html", error="Your Mastodon username can't be used here."), 400
+
+    mastodon_url = credentials.get("url") or f"{accounts.instance_url(host)}/@{mastodon_username}"
+    acct = f"{mastodon_username}@{host}"
+
+    users = get_users()
+    for name, entry in users.items():
+        if entry.get("mastodon", {}).get("acct") == acct:
+            session["user"] = name
+            return redirect(f"/@{name}")
+
+    username = mastodon_username
+    if username in users:
+        username = f"{mastodon_username}_{host.replace('.', '_').replace(':', '_')}"
+        if username in users:
+            return render_template("signup.html", error="A username for this account is already taken."), 409
+
+    verified_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    accounts.provision_account(username, instance,
+                               links=[mastodon_url],
+                               verified_links={mastodon_url: verified_at},
+                               display_name=credentials.get("display_name") or username)
+
+    users[username] = {"mastodon": {"acct": acct, "url": mastodon_url,
+                                    "instance": host, "verified_at": verified_at}}
+    write_users(users)
+
+    session["user"] = username
+    return redirect(f"/@{username}")
 
 
 
@@ -514,7 +610,9 @@ def profile(actor: str):
     actor_jsonld = get_actor_jsonld(actor)
 
     links = user_file["links"]
-    items = [{"link": link, "verified": False, "site": None} for link in links]
+    verified_links = user_file.get("verified_links", {})
+    items = [{"link": link, "verified": False, "site": None,
+              "preverified": link in verified_links} for link in links]
     
     return render_template("user.html", posts=items, name=f"@{actor}@{domain}", shortname=f"@{actor}", actor = actor_jsonld, user=None)#current_user)
 
@@ -757,14 +855,17 @@ def webfinger():
                 "rel": "self",
                 "type": "application/activity+json",
                 "href": f"{instance}/b/{username}"
-            },
-            {
-                "rel": "http://webfinger.net/rel/avatar",
-                "type": actor["icon"]["mediaType"],
-                "href": actor["icon"]["url"]
             }
         ]
     }
+
+    # not every account has an avatar (e.g. freshly provisioned ones)
+    if "icon" in actor:
+        response["links"].append({
+            "rel": "http://webfinger.net/rel/avatar",
+            "type": actor["icon"]["mediaType"],
+            "href": actor["icon"]["url"]
+        })
 
     # RFC 7033: JRDs are served as application/jrd+json
     return Response(json.dumps(response), content_type="application/jrd+json")

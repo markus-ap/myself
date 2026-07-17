@@ -17,7 +17,7 @@
             {% endif %}
             <ul>
                 {% for post in posts %}
-                    <li class="post">
+                    <li class="post"{% if post.preverified %} data-preverified="1"{% endif %}>
                         <span class="verification-icon" role="img" aria-label="Verifying…">⏳</span>
                         <a rel="me" href="{{ post.link }}">{{ post.link }}</a>
                     </li>
