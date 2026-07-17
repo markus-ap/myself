@@ -1,10 +1,12 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, Response, request, jsonify, render_template, redirect, url_for
 # from flask_login import UserMixin, login_user, login_required, logout_user, current_user
 from flask_cors import CORS
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
 from urllib import robotparser
-import json, requests, bcrypt, uuid, os, time
+import json, requests, bcrypt, uuid, os, time, threading
+
+import federation
 
 dev_ip = "192.168.68.107:5000"
 domain = "myself.social"
@@ -44,6 +46,10 @@ def load_user(username: str):
         return user
 
 CORS(app)
+
+def ap_jsonify(data: dict, status: int = 200):
+    """ActivityPub documents must be served as activity+json, not plain json."""
+    return Response(json.dumps(data), status=status, content_type=federation.ACTIVITY_CONTENT_TYPE)
 
 def get_ds_client():
     pass #return datastore.Client.from_service_account_info(json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]))
@@ -185,100 +191,200 @@ def robots_allowed(url: str, session: requests.Session) -> bool:
 def test():
     return render_template("test.html")
 
+def as_create_activity(note: dict):
+    """Outbox items are activities, not bare objects (ActivityPub §5.1)."""
+    return {
+        "id": f"{note['id']}/activity",
+        "type": "Create",
+        "actor": note.get("attributedTo"),
+        "published": note.get("published"),
+        "to": note.get("to"),
+        "object": note
+    }
+
 @app.route("/b/<actor>/outbox", methods=["GET"])
 def outbox(actor: str):
     users = get_users()
     if actor not in users:
-        return jsonify({"Error": "User not found."})
-    
-    notes = json.loads(open(f"./actors/messages/{actor}.jsonld", "r", encoding="utf8").read())
-    pages = int(len(notes) / 5)
-    if pages == 0: pages = 1
+        return jsonify({"Error": "User not found."}), 404
 
-    resource = request.args.get("page")
-    if not resource:
-        return {
+    notes = json.loads(open(f"./actors/messages/{actor}.jsonld", "r", encoding="utf8").read())
+    page_size = 5
+    pages = max(1, -(-len(notes) // page_size))
+    base = request.base_url
+
+    page_param = request.args.get("page")
+    if not page_param:
+        return ap_jsonify({
             "@context": "https://www.w3.org/ns/activitystreams",
-            "id": request.url,
+            "id": base,
             "type": "OrderedCollection",
             "totalItems": len(notes),
-            "first": f"{request.url}?page=1",
-            "last": f"{request.url}?page={pages}"
-        }
+            "first": f"{base}?page=1",
+            "last": f"{base}?page={pages}"
+        })
 
-    return jsonify({"Error": "Unknown error"}), 400
+    try:
+        page = int(page_param)
+    except ValueError:
+        return jsonify({"Error": "page must be a number"}), 400
+    if page < 1 or page > pages:
+        return jsonify({"Error": "Page not found."}), 404
+
+    ordered = list(notes.values())
+    ordered.reverse()  # newest first, matching other fediverse outboxes
+    start = (page - 1) * page_size
+
+    document = {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": f"{base}?page={page}",
+        "type": "OrderedCollectionPage",
+        "partOf": base,
+        "orderedItems": [as_create_activity(note) for note in ordered[start:start + page_size]]
+    }
+    if page < pages: document["next"] = f"{base}?page={page + 1}"
+    if page > 1: document["prev"] = f"{base}?page={page - 1}"
+    return ap_jsonify(document)
 
 @app.route("/b/<actor>/inbox", methods=["POST"])
-def inbox(actor: str):    
+def inbox(actor: str):
     print(f"Inbox call for {actor}")
-    request_body = json.loads(request.data.decode('utf-8'))
-    print(request_body)
-    if "type" in request_body:
-        response, status  = resolve_inbox_type(request_body)
-        return jsonify(response), status
-
-    return jsonify({"Error": "Unsupported request"}), 400
-
-def resolve_inbox_type(request: dict):
     users = get_users()
-    username = request["object"].split("/")[-1]
-    if username not in users: 
-        return jsonify({"Error": "Failed to find user"}), 404
-    
-    user = json.loads(open(f"./actors/{username}.jsonld", "r", encoding="utf8").read())
+    if actor not in users:
+        return jsonify({"Error": "User not found."}), 404
 
-    match request["type"]:
+    body = request.get_data()
+    try:
+        activity = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return jsonify({"Error": "Body is not valid JSON"}), 400
+    if "type" not in activity or "actor" not in activity:
+        return jsonify({"Error": "Unsupported request"}), 400
+
+    try:
+        key_owner = federation.verify_request(request.method, request.path, request.headers,
+                                              body, myself_headers, timeout)
+    except federation.SignatureError as error:
+        # A Delete for an already-deleted actor can't be verified any more
+        # (the key is gone with the account); acknowledge it so remote
+        # servers stop retrying, but act on nothing else.
+        if activity["type"] == "Delete" and error.actor_gone:
+            return "", 202
+        print(f"Rejected inbox delivery for '{actor}': {error.reason}")
+        return jsonify({"Error": f"Signature verification failed: {error.reason}"}), 401
+
+    if activity["actor"] != key_owner:
+        return jsonify({"Error": "Activity actor does not match the signing key's owner"}), 401
+
+    response, status = resolve_inbox_type(actor, activity)
+    return jsonify(response), status
+
+def resolve_inbox_type(username: str, activity: dict):
+    user = get_user(username)
+    local_actor = get_actor(username)
+    actor_id = local_actor.get("id", f"{instance}/b/{username}")
+
+    match activity["type"]:
         case "Follow":
-            print(f"{request['actor']} is requesting to follow.")
-            user.setdefault("followers", [])
-            user["followers"].append(request["actor"])
-            
-            follower = request["actor"]
+            if activity.get("object") != actor_id:
+                return {"Error": "Follow object does not match this inbox"}, 400
+
+            follower = activity["actor"]
+            print(f"{follower} is requesting to follow.")
+            followers = user.setdefault("followers", [])
+            if follower not in followers:
+                followers.append(follower)
+                save_user(username, user)
 
             accept = {
                 "@context": "https://www.w3.org/ns/activitystreams",
-                "id": f"{user['profile']}#accepts/followers/{uuid.uuid4()}",
+                "id": f"{actor_id}#accepts/follows/{uuid.uuid4()}",
                 "type": "Accept",
-                "actor": follower,
-                "object": request
+                "actor": actor_id,
+                "object": activity
             }
-
-            open(f"./actors/{username}.jsonld", "w", encoding="utf8").write(json.dumps(user, indent=4))
-            return accept, 200
+            # the Accept only takes effect once it is POSTed to the
+            # follower's inbox; returning it in the response is not delivery
+            threading.Thread(target=deliver_to_actor, args=(username, follower, accept), daemon=True).start()
+            return accept, 202
+        case "Undo":
+            inner = activity.get("object")
+            if isinstance(inner, dict) and inner.get("type") == "Follow":
+                follower = activity["actor"]
+                print(f"{follower} is unfollowing.")
+                if follower in user.get("followers", []):
+                    user["followers"].remove(follower)
+                    save_user(username, user)
+                return {"status": "ok"}, 202
+            return {"error": "Unsupported activity type"}, 400
         case "Delete":
-            print(f"{request['id']} was requested for deletion...")
-
-            return {"status": "ok"}, 200
+            print(f"{activity.get('id')} was requested for deletion...")
+            if activity["actor"] in user.get("followers", []):
+                user["followers"].remove(activity["actor"])
+                save_user(username, user)
+            return {"status": "ok"}, 202
         case _:
             return {"error": "Unsupported activity type"}, 400
 
+def deliver_to_actor(username: str, remote_actor_url: str, activity: dict):
+    """Sign an activity with the user's key and POST it to the remote
+    actor's inbox. Skips quietly when no private key exists on disk."""
+    key_path = f"./actors/{username}_private.pem"
+    if not os.path.exists(key_path):
+        print(f"No private key for '{username}'; cannot deliver {activity['type']} to {remote_actor_url}")
+        return
+
+    local_actor = get_actor(username)
+    actor_id = local_actor.get("id", f"{instance}/b/{username}")
+    key_id = local_actor.get("publicKey", {}).get("id", f"{actor_id}#publicKey")
+
+    try:
+        remote = federation.fetch_actor(remote_actor_url, myself_headers, timeout)
+        inbox_url = remote.get("inbox")
+        if not inbox_url:
+            print(f"Remote actor {remote_actor_url} has no inbox.")
+            return
+        response = federation.deliver(activity, inbox_url, key_id, open(key_path, "rb").read(),
+                                      myself_headers, timeout)
+        print(f"Delivered {activity['type']} to {inbox_url}: {response.status_code}")
+    except (requests.RequestException, ValueError) as error:
+        print(f"Failed to deliver {activity['type']} to {remote_actor_url}: {error}")
+
+def serve_collection(actor: str, kind: str):
+    """Serve the followers/following collection, with live membership from
+    the user file and a single OrderedCollectionPage behind ?page=1."""
+    users = get_users()
+    if actor not in users:
+        return jsonify({"Error": "User not found."}), 404
+
+    data = json.loads(open(f"./actors/{actor}_actor_{kind}.jsonld", "r").read())
+    members = get_user(actor).get(kind, [])
+    data["totalItems"] = len(members)
+
+    page_param = request.args.get("page")
+    if not page_param:
+        return ap_jsonify(data)
+    if page_param != "1":
+        return jsonify({"Error": "Page not found."}), 404
+
+    return ap_jsonify({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": f"{data['id']}?page=1",
+        "type": "OrderedCollectionPage",
+        "partOf": data["id"],
+        "totalItems": len(members),
+        "orderedItems": members
+    })
+
 @app.route("/b/<actor>/following")
+@app.route("/b/<actor>/following.json")
 def following(actor: str):
-    return redirect(f"/b/{actor}/following.json")
+    return serve_collection(actor, "following")
 
 @app.route("/b/<actor>/followers")
-def followers(actor: str):
-    return redirect(f"/b/{actor}/followers.json")
-
-@app.route("/b/<actor>/following.json")
-def following_json(actor: str):   
-    users = get_users()
-    if actor not in users:
-        return jsonify({"Error": "User not found."}), 400
-    
-    data = json.loads(open(f"./actors/{actor}_actor_following.jsonld", "r").read())
-    
-    return jsonify(data), 200
-
 @app.route("/b/<actor>/followers.json")
-def followers_json(actor: str):   
-    users = get_users()
-    if actor not in users:
-        return jsonify({"Error": "User not found."}), 400
-    
-    data = json.loads(open(f"./actors/{actor}_actor_followers.jsonld", "r").read())
-    
-    return jsonify(data), 200
+def followers(actor: str):
+    return serve_collection(actor, "followers")
 
 @app.route("/create", methods=["POST"])
 def create():
@@ -294,11 +400,11 @@ def create():
 def user_post(user: str, note_id: str):
     users = get_users()
     if user not in users:
-        return jsonify({"Error": "User not found."}), 400
-    
+        return jsonify({"Error": "User not found."}), 404
+
     actor = get_actor(user)
     if note_id == "0":
-        return  {
+        return ap_jsonify({
             "@context": "https://www.w3.org/ns/activitystreams",
             "id": f"https://myself.social/b/{user}/o/0",
             "type": "Note",
@@ -306,13 +412,13 @@ def user_post(user: str, note_id: str):
             "attributedTo": f"https://myself.social/b/{user}",
             "content": "<p>Hei, verda!</p> <p>Eg har blitt født.</p>",
             "to": "https://www.w3.org/ns/activitystreams#Public"
-        }
-    
+        })
+
     notes = json.loads(open(f"./actors/messages/{user}.jsonld", "r", encoding="utf8").read())
     if request.url in notes:
-        return notes[request.url]
+        return ap_jsonify(notes[request.url])
 
-    return jsonify({"Error": "Note not found."}), 400
+    return jsonify({"Error": "Note not found."}), 404
 
 
 @app.route("/b/<user>.json")
@@ -321,32 +427,38 @@ def actor_redirect(user: str):
 
 @app.route("/b/<user>")
 def actor(user: str):
-    user_agent = request.headers.get('User-Agent').lower()
+    # content negotiation first (the spec-defined mechanism); the old
+    # User-Agent sniffing only remains as a fallback for clients that
+    # send no useful Accept header
+    accept = request.headers.get("Accept", "")
+    wants_activity = "activity+json" in accept or "ld+json" in accept
 
-    browser_agents = ["mozilla", "chrome", "applewebkit"]
-    for agent in browser_agents: 
-        if agent in user_agent:
+    if not wants_activity:
+        user_agent = (request.headers.get("User-Agent") or "").lower()
+        browser_agents = ["mozilla", "chrome", "applewebkit"]
+        if "text/html" in accept or any(agent in user_agent for agent in browser_agents):
             return redirect(f"/@{user}")
-    
+
     users = get_users()
     if user not in users:
-        return jsonify({"Error": "User not found."}), 400
-    
+        return jsonify({"Error": "User not found."}), 404
+
     data = get_actor_jsonld(user)
-    
-    return jsonify(data), 200
+
+    return ap_jsonify(data)
 
 @app.route("/b/<user>/collections/featured")
 def featured(user: str):
     users = get_users()
     if user not in users:
-        return jsonify({"Error": "User not found."}), 400
-    
+        return jsonify({"Error": "User not found."}), 404
+
     data = json.loads(open(f"./actors/{user}_actor_featured.jsonld", "r").read())
-    data["orderedItems"] = json.loads(open(f"./actors/messages/{user}.jsonld", "r", encoding="utf8").read())
+    # orderedItems must be a list of objects, not the id->note mapping
+    data["orderedItems"] = list(json.loads(open(f"./actors/messages/{user}.jsonld", "r", encoding="utf8").read()).values())
     data["totalItems"] = len(data["orderedItems"])
-    
-    return jsonify(data), 200
+
+    return ap_jsonify(data)
 
 def get_actor_jsonld(actor: str):
     data = json.loads(open(f"./actors/{actor}_actor.jsonld", "r", encoding="utf8").read())
@@ -381,13 +493,13 @@ def get_actor_jsonld(actor: str):
     return data
 
 @app.route("/@<actor>.json")
-def actor_json(actor: str):   
+def actor_json(actor: str):
     users = get_users()
     if actor not in users:
-        return jsonify({"Error": "User not found."}), 400
-    
+        return jsonify({"Error": "User not found."}), 404
+
     data = get_actor_jsonld(actor)
-    return jsonify(data), 200
+    return ap_jsonify(data)
 
 @app.route("/@<actor>")
 def profile(actor: str):   
@@ -612,14 +724,16 @@ def webfinger():
     user_parts = resource.split('@')
     if len(user_parts) != 2:
         return jsonify({'error': 'Invalid resource format'}), 400
-    
+
     username, user_instance = user_parts
-    if user_instance not in instance:
+    # exact host match; the old substring test ("lol" in instance, …)
+    # accepted resources for domains this server is not authoritative for
+    if user_instance != domain:
         return jsonify({'error': 'Invalid instance'}), 400
-    if "acct:" not in username:
+    if not username.startswith("acct:"):
         return jsonify({"error": "Invalid acct IRI."}), 400
-    
-    username = username.replace("acct:", "")
+
+    username = username.replace("acct:", "", 1)
     
     users = get_users()
     if username not in users:
@@ -651,8 +765,9 @@ def webfinger():
             }
         ]
     }
-    
-    return jsonify(response), 200
+
+    # RFC 7033: JRDs are served as application/jrd+json
+    return Response(json.dumps(response), content_type="application/jrd+json")
 
 def get_user(user: str):
     return json.loads(open(f"./actors/{user}.jsonld", "r").read())
