@@ -1,0 +1,10 @@
+User-agent: *
+# API and machine-readable endpoints that shouldn't be indexed
+Disallow: /verify
+Disallow: /db/
+Disallow: /test
+Disallow: /signup
+Disallow: /create
+Disallow: /b/
+Disallow: /.well-known/
+Allow: /

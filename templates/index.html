@@ -1,18 +1,44 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>myself.social</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing_page.css') }}">
+{% extends "base.html" %}
+
+{% block title %}myself.social &mdash; a passport for the fediverse{% endblock %}
+
+{% block head %}
+    <meta name="description" content="myself.social is a passport for the fediverse: one handle that proves every one of your profiles across the web belongs to you.">
+    <link rel="canonical" href="https://myself.social/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="myself.social">
+    <meta property="og:description" content="A passport for the fediverse. One handle that proves every one of your profiles belongs to you.">
+    <meta property="og:url" content="https://myself.social/">
+    <meta property="og:image" content="{{ url_for('static', filename='img/myself_banner.jpeg') }}">
     <link rel="me" href="https://skvip.lol/@markus">
     <meta name="fediverse:creator" content="@markus@skvip.lol" />
-</head>
-<body>
-    <div class="container">
-        <h1>myself.social</h1>
-        <p>Dette er ei teneste for å verifisere din identitet på tvers av vevsidar.</p>
-        <p>Du fyllar inn din myself.social-konto med lenkjer til dine profilar på veven. På desse profilane lenkjar du også tilbake til din myself.social-konto. Då verifiserar tenestane kvarandre, og det kan bli verifisert at alle desse kontoane er dine. </p>
-        <p>Du kan sjå eit døme på det via <a href="https://myself.social/@markus">@markus@myself.social</a>.</a></p>    
-        <p>Du kan finne meg på <a href="https://skvip.lol/@markus">mastodon</a> om du har spørsmål.</p>
+{% endblock %}
+
+{% block content %}
+    <h1>A passport for the fediverse</h1>
+
+    <p class="lede">You are scattered across a dozen servers. myself.social gives you one
+    handle that vouches for all of them &mdash; and lets anyone check the claim for themselves.</p>
+
+    <div class="panel">
+        <h2>How it works</h2>
+        <ol class="steps">
+            <li>Claim a myself.social account and list the profiles you own &mdash; Mastodon,
+            Pixelfed, BookWyrm, your own website, anything on the web.</li>
+            <li>On each of those profiles, link back to your myself.social account.</li>
+            <li>We follow every link in both directions. When two pages point at each other,
+            the pair is confirmed and stamped.</li>
+        </ol>
+        <p>Nobody has to take your word for it, and nobody has to take ours: the evidence is
+        a set of public links that anyone can follow.</p>
     </div>
-</body>
-</html>
+
+    <div class="panel">
+        <h2>See one in the wild</h2>
+        <p>Have a look at <a href="https://myself.social/@markus">@markus@myself.social</a>
+        for a passport with its stamps already collected.</p>
+        <p><a class="button" href="{{ url_for('signup') }}">Claim your handle</a></p>
+    </div>
+
+    <p>Questions? Find me on <a href="https://skvip.lol/@markus">Mastodon</a>.</p>
+{% endblock %}

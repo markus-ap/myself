@@ -1,5 +1,5 @@
-<meta charset="UTF-8">
-<meta property="og:type"               content="profile" />
-<meta property="og:title"              content="{{ name if external else shortname }} | myself.social" />
-<meta property="og:description" content="{{ actor.summary|replace('</p>', ' ')|striptags|safe if actor.summary else 'Profile of ' ~ shortname ~ ' at myself.social.' }}" />
-<meta property="og:image" content="{{ actor.icon.url if actor.image else url_for('static', filename='img/myself_banner.png') }}" />
+{# Open Graph tags for profile pages. base.html owns <meta charset>. #}
+<meta property="og:type" content="profile" />
+<meta property="og:title" content="{{ name if external else shortname }} | myself.social" />
+<meta property="og:description" content="{{ actor.summary|replace('</p>', ' ')|striptags if actor and actor.summary else 'Profile of ' ~ shortname ~ ' at myself.social.' }}" />
+<meta property="og:image" content="{{ actor.icon.url if actor and actor.icon else url_for('static', filename='img/myself_banner.jpeg') }}" />

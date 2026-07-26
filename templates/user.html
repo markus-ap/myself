@@ -1,40 +1,84 @@
-<!DOCTYPE html>
-<html>
-<head>    
-    <link rel="stylesheet" href="{{ url_for('static', filename='user_style.css') }}">
-    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
-    <title>{{ shortname }} | myself.social</title>
+{% extends "base.html" %}
+
+{% block title %}{{ shortname if shortname else name }} | myself.social{% endblock %}
+
+{% block head %}
     {% include 'meta.html' %}
-</head>
-<body>
+{% endblock %}
 
-    <div class="container">
-        <div class="id-card">
-            <h1><span id="all-verified">⏳</span> {{ name }}</h1>
-            {% if external %}
-                <p id="external">Verifying against <span id="guess">⏳</span></p>
+{% block content %}
+    <article class="credential">
+        <div class="credential__band" aria-hidden="true"></div>
+
+        <div class="credential__head">
+            {% set has_icon = actor and actor.icon and actor.icon.url %}
+            {% if has_icon %}
+                {# Remote actors supply this URL, so it is treated as untrusted:
+                   no referrer leaks out and the image never blocks first paint.
+                   If it fails to load, scripts.js swaps in the placeholder below. #}
+                <img class="credential__portrait" id="portrait" src="{{ actor.icon.url }}"
+                     alt="Profile picture for {{ name }}"
+                     loading="lazy" decoding="async" referrerpolicy="no-referrer">
             {% endif %}
-            <ul>
-                {% for post in posts %}
-                    <li class="post">
-                        <span class="verification-icon">⏳</span>
-                        <a rel="me" href="{{ post.link }}">{{ post.link }}</a>
-                    </li>
-                {% endfor %}
-            </ul>
+            <div class="credential__portrait credential__portrait--empty"
+                 id="portrait-fallback" aria-hidden="true"{% if has_icon %} hidden{% endif %}>
+                <svg viewBox="0 0 32 32" width="34" height="34" focusable="false">
+                    <circle cx="16" cy="12" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <path d="M6.5 27c1.6-5.2 5.2-7.8 9.5-7.8s7.9 2.6 9.5 7.8"
+                          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <div class="credential__identity">
+                <h1 class="credential__name">{{ actor.name if actor and actor.name else name }}</h1>
+                <p class="credential__handle">{{ name }}</p>
+                {% if actor and actor.summary %}
+                    {# striptags, never |safe: the summary is remote HTML #}
+                    <p class="credential__bio">{{ actor.summary|replace('</p>', ' ')|replace('<br>', ' ')|striptags }}</p>
+                {% endif %}
+            </div>
         </div>
-    </div>
-s
+
+        <div class="credential__summary" aria-live="polite">
+            <p class="status status--summary" id="all-verified" data-state="checking" title="Checking&hellip;">
+                <span class="status__mark" aria-hidden="true">&hellip;</span>
+                <span class="status__text">Checking&hellip;</span>
+            </p>
+        </div>
+
+        {% if external %}
+            <dl class="credential__field">
+                <dt>Checking against</dt>
+                <dd id="external"><span id="guess">&hellip;</span></dd>
+            </dl>
+        {% endif %}
+
+        <section class="accounts">
+            <h2 class="accounts__title" id="accounts-heading">Linked accounts</h2>
+            {% if posts %}
+                <ul class="accounts__list" aria-labelledby="accounts-heading">
+                    {% for post in posts %}
+                        <li class="post"{% if post.preverified %} data-preverified="1"{% endif %}>
+                            <span class="status" data-state="checking" title="Checking&hellip;">
+                                <span class="status__mark" aria-hidden="true">&hellip;</span>
+                                <span class="status__text">Checking&hellip;</span>
+                            </span>
+                            <a class="post__link" rel="me" href="{{ post.link }}">{{ post.link }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="accounts__list">No accounts have been listed on this passport yet.</p>
+            {% endif %}
+        </section>
+    </article>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='scripts.js') }}" defer></script>
     <script>
-        verifyPages("{{ external }}");
-
-        // Open login form on button click
-        const loginButton = document.getElementById("login-button");
-        const loginOverlay = document.getElementById("loginOverlay");
-
-        loginButton.addEventListener("click", () => {
-            loginOverlay.style.display = "flex";
+        window.addEventListener("DOMContentLoaded", () => {
+            verifyPages("{{ external }}");
         });
     </script>
-</body>
-</html>
+{% endblock %}

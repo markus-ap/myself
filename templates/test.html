@@ -1,9 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Test</title>
-</head>
-<body>
-    <p>Dette er ein test</p>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Test | myself.social{% endblock %}
+
+{% block content %}
+    <h1>Test</h1>
+    <div class="panel">
+        <p>This page exists so the deployment can be poked at. It is disallowed in
+        <code>robots.txt</code>.</p>
+    </div>
+{% endblock %}

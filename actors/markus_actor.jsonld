@@ -89,6 +89,7 @@
     "inbox": "https://myself.social/b/markus/inbox",
     "manuallyApprovesFollowers": true,
     "name": "Markus 🌱",
+    "outbox": "https://myself.social/b/markus/outbox",
     "preferredUsername": "markus",
     "publicKey": {
         "id": "https://myself.social/b/markus#publicKey",

@@ -1,16 +1,14 @@
-<!DOCTYPE html>
-<html>
-<head>    
-    <link rel="stylesheet" href="{{ url_for('static', filename='user_style.css') }}">
-    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
-    <title>{{ shortname }} | myself.social</title>
-</head>
-<body>
-    <div class="container">
-        <div class="id-card">
-            <h1>{{ name }} ❓</h1>
-            <p>We found no user with the name {{ shortname }}.</p>
-        </div>
+{% extends "base.html" %}
+
+{% block title %}{{ shortname }} not found | myself.social{% endblock %}
+
+{% block content %}
+    <h1>No passport under that name</h1>
+
+    <div class="panel">
+        <p>We found no user called <strong>{{ shortname }}</strong> on myself.social.</p>
+        <p>The handle may have been mistyped, or it may belong to another server &mdash;
+        a full address looks like <code>@name@example.social</code>.</p>
+        <p><a class="button" href="{{ url_for('signup') }}">Claim {{ shortname }}</a></p>
     </div>
-</body>
-</html>
+{% endblock %}
