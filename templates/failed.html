@@ -1,17 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="{{ url_for('static', filename='user_style.css') }}">
-    <title>{{ name }} | myself.social</title>
-</head>
-<body>
-    <div class="container">
-        <div class="id-card">
-            <h1>Not found - {{ name }}</h1>
-            <p>We're sorry. We failed to find something suitable for this request.</p>
-        </div>
+{% extends "base.html" %}
+
+{% block title %}{{ name }} not found | myself.social{% endblock %}
+
+{% block content %}
+    <h1>We could not reach that account</h1>
+
+    <div class="panel">
+        <p>We looked up <strong>{{ name }}</strong> but could not retrieve a profile for it.</p>
+        <p>The server may be offline or may not answer the discovery request we use to find
+        an account. It is also worth checking the address for a typo.</p>
+        <p><a class="button button--secondary" href="{{ url_for('main') }}">Back to the start</a></p>
     </div>
-</body>
-</html>
+{% endblock %}

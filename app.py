@@ -490,7 +490,10 @@ def create():
 
     items, all_verified = verify_pages(links, target)
 
-    return render_template("user.html", verified = all_verified, posts=items, name=data["username"])
+    # shortname feeds the <title> and the Open Graph tags in meta.html; without
+    # it they render as " | myself.social" and "Profile of  at myself.social."
+    return render_template("user.html", verified = all_verified, posts=items,
+                           name=data["username"], shortname=f"@{data['username']}")
 
 @app.route("/b/<user>/o/<note_id>")
 def user_post(user: str, note_id: str):
