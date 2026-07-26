@@ -1,0 +1,785 @@
+/* ==========================================================================
+   myself.social — "Credential"
+
+   A passport for the fediverse. The brand pink (#f51899) is 3.84:1 on white
+   and at best 5.47:1 under pure black, so it can never carry text at AAA
+   (7:1 body, 4.5:1 large). It is therefore used exclusively as a graphic:
+   fills, seals, rules and focus rings, where the 3:1 threshold applies.
+   All text uses a darker sibling of the same hue.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Fonts
+   Latin-ext is listed separately so browsers only fetch it when a glyph
+   outside Latin-1 actually appears (remote fediverse display names).
+   -------------------------------------------------------------------------- */
+
+@font-face {
+    font-family: 'Archivo';
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src: url('../fonts/archivo-var-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+        U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+        U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Archivo';
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src: url('../fonts/archivo-var-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'Atkinson Hyperlegible';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/atkinson-hyperlegible-400-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+        U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+        U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Atkinson Hyperlegible';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/atkinson-hyperlegible-400-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: 'Atkinson Hyperlegible';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../fonts/atkinson-hyperlegible-700-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+        U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+        U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Atkinson Hyperlegible';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('../fonts/atkinson-hyperlegible-700-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+        U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* --------------------------------------------------------------------------
+   2. Tokens
+
+   Every contrast ratio below was computed against the WCAG relative-luminance
+   formula. Nothing here is eyeballed. Ratios are quoted against --canvas.
+   -------------------------------------------------------------------------- */
+
+:root {
+    color-scheme: light dark;
+
+    /* Brand — graphic use only, never text. 3.84:1 on canvas (needs 3:1). */
+    --brand: #f51899;
+    --brand-deep: #d3177b;
+
+    /* Surfaces */
+    --canvas: #fff5fa;
+    --surface: #ffffff;
+    --surface-sunken: #fdeaf3;
+
+    /* Text */
+    --ink: #1a0a14;         /* 17.94:1 */
+    --ink-muted: #4a2437;   /* 12.32:1 */
+    --brand-ink: #8e0a58;   /* 8.44:1  — links, headings */
+    --brand-ink-hover: #6d0743;
+
+    /* Lines */
+    --rule: #e7c9da;
+    --rule-strong: #8a6076;
+
+    /* Status chips — dark ink on a tinted field, all >= 7:1 */
+    --ok-ink: #0a4a23;
+    --ok-field: #dcf1e3;
+    --ok-edge: #3f8e5e;
+
+    --partial-ink: #523300;
+    --partial-field: #fbedce;
+    --partial-edge: #946f22;
+
+    --bad-ink: #7a0e0e;
+    --bad-field: #fadfdf;
+    --bad-edge: #ab5252;
+
+    --idle-ink: #332830;
+    --idle-field: #ede7eb;
+    --idle-edge: #776a78;
+
+    /* Focus */
+    --focus: #8e0a58;
+    --focus-halo: #ffffff;
+
+    --shadow: 0 1px 2px rgb(26 10 20 / 6%), 0 8px 24px -12px rgb(26 10 20 / 24%);
+
+    /* Type scale — fluid, capped so 200% zoom never overflows */
+    --step--1: clamp(0.82rem, 0.79rem + 0.14vw, 0.9rem);
+    --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.12rem);
+    --step-1: clamp(1.2rem, 1.12rem + 0.4vw, 1.45rem);
+    --step-2: clamp(1.45rem, 1.31rem + 0.7vw, 1.95rem);
+    --step-3: clamp(1.75rem, 1.5rem + 1.25vw, 2.7rem);
+
+    --measure: 66ch;
+    --radius: 14px;
+    --radius-sm: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* The brand pink is only 5.15:1 even on near-black, so the dark
+           theme needs its own lighter pink for text. */
+        --brand: #f51899;
+        --brand-deep: #ff5fb2;
+
+        --canvas: #14060f;
+        --surface: #1f0b18;
+        --surface-sunken: #2a1122;
+
+        --ink: #fdeaf4;         /* 17.18:1 */
+        --ink-muted: #d8b9cb;   /* 11.03:1 */
+        --brand-ink: #ff85c6;   /* 8.87:1 */
+        --brand-ink-hover: #ffa8d6;
+
+        --rule: #3d1c30;
+        --rule-strong: #9a6d85;
+
+        --ok-ink: #8fe8b0;
+        --ok-field: #0c2418;
+        --ok-edge: #4f9c6d;
+
+        --partial-ink: #ffd79a;
+        --partial-field: #2a1e08;
+        --partial-edge: #9c7c3c;
+
+        --bad-ink: #ffafaf;
+        --bad-field: #2b1010;
+        --bad-edge: #b05c5c;
+
+        --idle-ink: #d9cfd6;
+        --idle-field: #231a21;
+        --idle-edge: #847580;
+
+        --focus: #ff85c6;
+        --focus-halo: #14060f;
+
+        --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px -12px rgb(0 0 0 / 70%);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   3. Reset and base
+   -------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    /* svh, not vh: dynamic mobile toolbars clip a vh-based full-height layout */
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: var(--step-0);
+    /* 1.4.8 requires at least 1.5 line spacing within a paragraph */
+    line-height: 1.6;
+    text-align: left;
+    -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.5em;
+    text-wrap: balance;
+}
+
+h1 {
+    font-size: var(--step-3);
+}
+
+h2 {
+    font-size: var(--step-2);
+}
+
+h3 {
+    font-size: var(--step-1);
+}
+
+/* 1.4.8: paragraph spacing at least 1.5x the line spacing (1.6 * 1.5 = 2.4) */
+p {
+    margin: 0 0 1.5rem;
+    max-width: var(--measure);
+}
+
+a {
+    color: var(--brand-ink);
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
+}
+
+a:hover {
+    color: var(--brand-ink-hover);
+}
+
+/* 2.4.7 / 1.4.11 — a two-tone ring so it reads on any surface */
+:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 3px;
+    box-shadow: 0 0 0 6px var(--focus-halo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   4. Skip link and landmarks
+   -------------------------------------------------------------------------- */
+
+.skip-link {
+    position: absolute;
+    left: 0.5rem;
+    top: -4rem;
+    z-index: 10;
+    padding: 0.75rem 1.25rem;
+    background: var(--surface);
+    color: var(--brand-ink);
+    border: 2px solid var(--brand);
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    text-decoration: none;
+    transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+    top: 0.5rem;
+}
+
+.page {
+    width: 100%;
+    max-width: 46rem;
+    margin-inline: auto;
+    padding: 1.5rem 1.25rem 0;
+}
+
+.site-header {
+    display: flex;
+    align-items: center;
+    padding-block: 0.5rem 1.5rem;
+}
+
+/* 2.5.5 Target Size (Enhanced): the brand is a standalone navigation target,
+   not an in-sentence link, so it gets the full 44px. */
+.site-header__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-height: 44px;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.site-header__mark {
+    flex: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    color: var(--brand);
+}
+
+.site-header__name {
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: var(--step-0);
+    letter-spacing: -0.01em;
+}
+
+.site-header__brand:hover {
+    color: var(--brand-ink);
+}
+
+.site-header__brand:hover .site-header__mark {
+    color: var(--brand-deep);
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+.site-footer {
+    margin-top: 3rem;
+    padding-block: 1.5rem 2rem;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+}
+
+.site-footer p {
+    margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   5. The credential — profile card
+   -------------------------------------------------------------------------- */
+
+.credential {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+/* The one place the brand pink runs at full strength: a band, carrying no text */
+.credential__band {
+    height: 0.5rem;
+    background: linear-gradient(90deg, var(--brand) 0%, var(--brand-deep) 100%);
+}
+
+.credential__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.1rem;
+    padding: 1.5rem 1.5rem 1.25rem;
+    flex-wrap: wrap;
+}
+
+.credential__portrait {
+    flex: none;
+    width: 5rem;
+    height: 5rem;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    background: var(--surface-sunken);
+    border: 1px solid var(--rule);
+}
+
+.credential__portrait--empty {
+    display: grid;
+    place-items: center;
+    color: var(--brand);
+}
+
+.credential__identity {
+    min-width: 12rem;
+    flex: 1 1 16rem;
+}
+
+.credential__name {
+    font-size: var(--step-2);
+    margin-bottom: 0.15rem;
+}
+
+.credential__handle {
+    margin: 0;
+    color: var(--ink-muted);
+    font-size: var(--step-0);
+    word-break: break-word;
+}
+
+.credential__bio {
+    margin: 0.6rem 0 0;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    line-height: 1.55;
+}
+
+/* Label/value rows — the "official record" cue, without the costume */
+.credential__field {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+    padding: 0.7rem 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-size: var(--step--1);
+}
+
+.credential__field dt {
+    flex: none;
+    min-width: 8.5rem;
+    margin: 0;
+    color: var(--ink-muted);
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 0.75em;
+}
+
+.credential__field dd {
+    margin: 0;
+    flex: 1 1 12rem;
+    word-break: break-word;
+}
+
+/* --------------------------------------------------------------------------
+   6. Accounts list
+   -------------------------------------------------------------------------- */
+
+.accounts {
+    border-top: 1px solid var(--rule);
+}
+
+.accounts__title {
+    font-size: var(--step--1);
+    font-family: 'Archivo', system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-muted);
+    margin: 0;
+    padding: 1.1rem 1.5rem 0.35rem;
+}
+
+.accounts__list {
+    list-style: none;
+    margin: 0;
+    padding: 0 1.5rem 1.25rem;
+}
+
+.post {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--rule);
+}
+
+.post:last-child {
+    border-bottom: 0;
+}
+
+.post__link {
+    flex: 1 1 14rem;
+    /* 2.5.5 Target Size (Enhanced): 44px minimum */
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    word-break: break-all;
+    color: var(--brand-ink);
+    font-size: var(--step--1);
+}
+
+.site {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    padding: 0.1rem 0.5rem;
+    background: var(--surface-sunken);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   7. Status chips
+
+   Meaning never rests on colour alone (1.4.1): every state pairs its palette
+   with a distinct glyph shape AND a visible word. The glyph is decorative
+   (aria-hidden); the word is the accessible text.
+   -------------------------------------------------------------------------- */
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: none;
+    min-height: 32px;
+    padding: 0.2rem 0.65rem 0.2rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--idle-edge);
+    background: var(--idle-field);
+    color: var(--idle-ink);
+    font-size: var(--step--1);
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.status__mark {
+    display: grid;
+    place-items: center;
+    width: 1.15em;
+    height: 1.15em;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    font-size: 0.85em;
+    font-weight: 700;
+}
+
+.status[data-state='verified'] {
+    background: var(--ok-field);
+    border-color: var(--ok-edge);
+    color: var(--ok-ink);
+}
+
+.status[data-state='partial'] {
+    background: var(--partial-field);
+    border-color: var(--partial-edge);
+    color: var(--partial-ink);
+}
+
+.status[data-state='failed'],
+.status[data-state='error'] {
+    background: var(--bad-field);
+    border-color: var(--bad-edge);
+    color: var(--bad-ink);
+}
+
+/* The summary chip sits above the list and is a touch larger */
+.status--summary {
+    font-size: var(--step-0);
+    min-height: 44px;
+    padding: 0.35rem 0.9rem 0.35rem 0.7rem;
+}
+
+.credential__summary {
+    padding: 0 1.5rem 1.25rem;
+}
+
+/* --------------------------------------------------------------------------
+   8. Prose pages (landing, errors)
+   -------------------------------------------------------------------------- */
+
+.prose {
+    max-width: var(--measure);
+}
+
+.lede {
+    font-size: var(--step-1);
+    color: var(--ink);
+}
+
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.75rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.panel > :last-child {
+    margin-bottom: 0;
+}
+
+/* Numbered explainer of how verification works */
+.steps {
+    counter-reset: step;
+    list-style: none;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    max-width: var(--measure);
+}
+
+.steps li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 3rem;
+    margin-bottom: 1rem;
+}
+
+.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: -0.1rem;
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    /* A pink ring, not a pink fill: white-on-brand would be 3.84:1 and the
+       numeral is real text, so the ring carries the colour (graphic, 3:1)
+       and the numeral uses brand ink (7:1+). */
+    background: var(--surface-sunken);
+    border: 2px solid var(--brand);
+    color: var(--brand-ink);
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+/* --------------------------------------------------------------------------
+   9. Forms
+   -------------------------------------------------------------------------- */
+
+.field {
+    margin-bottom: 1.25rem;
+    max-width: 26rem;
+}
+
+.field label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.field__hint {
+    display: block;
+    font-weight: 400;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    margin-bottom: 0.4rem;
+}
+
+input[type='text'],
+input[type='password'] {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.55rem 0.7rem;
+    font: inherit;
+    font-size: var(--step-0);
+    color: var(--ink);
+    background: var(--surface);
+    border: 2px solid var(--rule-strong);
+    border-radius: var(--radius-sm);
+}
+
+input::placeholder {
+    color: var(--ink-muted);
+    opacity: 1;
+}
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.6rem 1.4rem;
+    font: inherit;
+    font-family: 'Archivo', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: var(--step-0);
+    color: var(--surface);
+    background: var(--brand-ink);
+    border: 2px solid var(--brand-ink);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.button:hover {
+    background: var(--brand-ink-hover);
+    border-color: var(--brand-ink-hover);
+    color: var(--surface);
+}
+
+.button--secondary {
+    background: transparent;
+    color: var(--brand-ink);
+}
+
+.button--secondary:hover {
+    background: var(--surface-sunken);
+    color: var(--brand-ink-hover);
+}
+
+.alert {
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--bad-edge);
+    border-left-width: 5px;
+    background: var(--bad-field);
+    color: var(--bad-ink);
+    font-weight: 700;
+    max-width: var(--measure);
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 2rem 0;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+}
+
+/* --------------------------------------------------------------------------
+   10. Utilities
+   -------------------------------------------------------------------------- */
+
+/* .credential__portrait--empty sets display:grid, which would otherwise beat
+   the UA stylesheet's [hidden] rule when the portrait is swapped */
+[hidden] {
+    display: none !important;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 30rem) {
+    .page {
+        padding-inline: 1rem;
+    }
+
+    .credential__head,
+    .credential__field,
+    .accounts__list,
+    .accounts__title,
+    .credential__summary {
+        padding-inline: 1.1rem;
+    }
+
+    .credential__field dt {
+        min-width: 100%;
+    }
+}

@@ -1,30 +1,58 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign up</title>
-</head>
-<body>
-    <h2>Sign up</h2>
-    {% if error %}
-        <p role="alert">{{ error }}</p>
-    {% endif %}
-    <form method="POST" action="/signup">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" autocomplete="username"><br>
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="new-password"><br>
-        <input type="submit" value="Sign up">
-    </form>
+{% extends "base.html" %}
 
-    <h2>Or sign up with Mastodon</h2>
-    <p>We'll send you to your home server to approve access. No password is stored here,
-       and the link to your Mastodon profile is verified automatically — you just proved it's yours.</p>
-    <form method="POST" action="/auth/mastodon">
-        <label for="instance">Your Mastodon handle or server</label>
-        <input type="text" id="instance" name="instance" placeholder="you@mastodon.social"><br>
-        <input type="submit" value="Continue with Mastodon">
-    </form>
-</body>
-</html>
+{% block title %}Claim your handle | myself.social{% endblock %}
+
+{% block content %}
+    <h1>Claim your handle</h1>
+    <p class="lede">Pick the name your passport will be issued in. You can add the accounts
+    it vouches for once you are in.</p>
+
+    {% if error %}
+        <p class="alert" role="alert">{{ error }}</p>
+    {% endif %}
+
+    <div class="panel">
+        <h2>Sign up with Mastodon</h2>
+        <p>We will send you to your own server to approve access. No password is stored
+        here, and because you prove the account is yours on the way in, your Mastodon
+        profile arrives already stamped.</p>
+
+        <form method="POST" action="{{ url_for('mastodon_auth_start') }}">
+            <div class="field">
+                <label for="instance">Your Mastodon handle or server</label>
+                <span class="field__hint" id="instance-hint">For example
+                <code>you@mastodon.social</code>, or just <code>mastodon.social</code>.
+                Your server will ask you to confirm before anything is shared.</span>
+                <input type="text" id="instance" name="instance"
+                       placeholder="you@mastodon.social"
+                       aria-describedby="instance-hint" autocomplete="url" required>
+            </div>
+            <button class="button" type="submit">Continue with Mastodon</button>
+        </form>
+    </div>
+
+    <p class="divider">or</p>
+
+    <div class="panel">
+        <h2>Sign up with a password</h2>
+
+        <form method="POST" action="{{ url_for('signup') }}">
+            <div class="field">
+                <label for="username">Username</label>
+                <span class="field__hint" id="username-hint">Letters, numbers and
+                underscores only. This becomes your handle.</span>
+                <input type="text" id="username" name="username"
+                       aria-describedby="username-hint" autocomplete="username"
+                       pattern="[A-Za-z0-9_]{1,64}" maxlength="64" required>
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <span class="field__hint" id="password-hint">At least eight characters.</span>
+                <input type="password" id="password" name="password"
+                       aria-describedby="password-hint" autocomplete="new-password"
+                       minlength="8" required>
+            </div>
+            <button class="button button--secondary" type="submit">Sign up</button>
+        </form>
+    </div>
+{% endblock %}
