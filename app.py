@@ -1,13 +1,14 @@
 from flask import Flask, Response, request, jsonify, render_template, redirect, url_for, session
-# from flask_login import UserMixin, login_user, login_required, logout_user, current_user
 from flask_cors import CORS
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urlunparse
 from urllib import robotparser
-import json, requests, bcrypt, uuid, os, time, threading, secrets
+from werkzeug.middleware.proxy_fix import ProxyFix
+import json, requests, uuid, os, time, threading, secrets
 
 import accounts
 import federation
+import storage
 
 dev_ip = "192.168.68.107:5000"
 domain = "myself.social"
@@ -19,6 +20,8 @@ timeout = 3
 # Where OAuth callbacks land; must be the public URL of this deployment.
 base_url = os.environ.get("BASE_URL", instance)
 
+storage.bootstrap()
+
 def load_secret_key():
     """A per-process random key breaks session cookies (OAuth state) across
     gunicorn workers, so persist one to disk unless SECRET_KEY is set."""
@@ -26,41 +29,34 @@ def load_secret_key():
     if key:
         return key
     try:
-        with open(".secret_key", "x") as key_file:
+        with open(storage.SECRET_KEY_FILE, "x") as key_file:
             key_file.write(os.urandom(32).hex())
     except FileExistsError:
         pass
-    return open(".secret_key").read().strip()
+    return storage.SECRET_KEY_FILE.read_text().strip()
 
 app = Flask(__name__, static_folder="static")
 app.secret_key = load_secret_key()
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400
 
-# login_manager = LoginManager()
-# login_manager.init_app(app)
-
-# class User(UserMixin):
-#     pass
+# Central Caddy terminates TLS and proxies over plain HTTP, so without this the
+# request URLs Flask builds come out as http:// — and those URLs end up as the
+# `id` of federated documents (outbox pages, note lookups), where the scheme is
+# part of the identity. Exactly one proxy sits in front of us.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 # users.json is re-read only when its mtime changes, instead of on every request
 _users_cache = {"mtime": None, "data": None}
 
 def get_users():
-    mtime = os.path.getmtime("users.json")
+    mtime = os.path.getmtime(storage.USERS_FILE)
     if _users_cache["mtime"] != mtime:
-        _users_cache["data"] = json.loads(open("users.json", "r", encoding="utf8").read())
+        _users_cache["data"] = storage.read_json(storage.USERS_FILE)
         _users_cache["mtime"] = mtime
     return _users_cache["data"]
 
 def write_users(users: dict):
-    open("users.json", "w", encoding="utf8").write(json.dumps(users, indent=4))
-
-# @login_manager.user_loader
-def load_user(username: str):
-    if username in get_users():
-        user = User()
-        user.id = username
-        return user
+    storage.write_json(storage.USERS_FILE, users)
 
 CORS(app)
 
@@ -68,102 +64,16 @@ def ap_jsonify(data: dict, status: int = 200):
     """ActivityPub documents must be served as activity+json, not plain json."""
     return Response(json.dumps(data), status=status, content_type=federation.ACTIVITY_CONTENT_TYPE)
 
-def get_ds_client():
-    pass #return datastore.Client.from_service_account_info(json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS"]))
+@app.route("/healthz")
+def healthz():
+    return Response("ok", content_type="text/plain; charset=utf-8")
 
-def get_actor_from_db(actor: str):
-    ds = get_ds_client()
-    query = ds.query(kind="actor")
-    query.add_filter("@id", "=", f"https://myself.social/b/{actor}")
-    actors = list(query.fetch())
-    if len(actors) != 1: return None
-    return actors[0]
-
-def update_actor_in_db(actor: dict):
-    pass
-    # client = get_ds_client()
-    # key = client.key("actor")
-    # actor = datastore.Entity(key=key)    
-    # actor.update(actor)
-    # client.put(actor)
-
-@app.route("/db/<actor>", methods=["GET"])
-def db(actor: str):
-    actor = get_actor_from_db(actor)
-    if actor is None:
-        return jsonify({"Error": "Actor not found"}), 404
-    return jsonify(actor), 200
-
-@app.route("/db/add/<actor>", methods=["POST"])
-def dbadd(actor: str):
-    actor = request.json
-    update_actor_in_db(actor)
-    return jsonify({"OK": "Nice"}), 200
-
-
-# @app.route("/login", methods = ["GET", "POST"])
-# def login():
-#     if request.method == "POST":
-#         username = request.form["username"]
-#         password = request.form["password"]
-#         if validate_login(username, password):
-#             user = load_user(username)
-#             login_user(user)
-#             return redirect(f"/@{username}")
-#     return render_template("login.html")
-
-def validate_login(username: str, password: str):
-    users = get_users()
-    if username not in users: return False
-    user = users[username]
-
-    # accounts created via Mastodon login have no password to check
-    if "password" not in user: return False
-
-    stored_hash = user["password"].encode("utf8")
-
-    return bcrypt.checkpw(password.encode("utf-8"), stored_hash)
-
-# @app.route("/check", methods=["GET"])
-# @login_required
-# def check():
-#     return f"Hello, {current_user.id}!"
-
-
-# @app.route('/logout')
-# @login_required
-# def logout():
-#     logout_user()
-#     return redirect(url_for('login'))
-
-def generate_random_string(length):
-    import random, string
-    characters = string.ascii_letters + string.digits + string.punctuation 
-    return  ''.join(random.choice(characters) for _ in range(length))
-    
-def register_user(username: str, password: str):
-    users = get_users()
-    if username in users:
-        return False
-    salt = bcrypt.gensalt()
-    password = password.encode("utf8")
-    hashed_password = bcrypt.hashpw(password, salt)
-    users[username] = {'password': hashed_password.decode("utf8"), "salt": salt.decode("utf8")}
-    write_users(users)
-    return True
-
-@app.route("/signup", methods=["GET", "POST"])
+@app.route("/signup")
 def signup():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-
-        if not register_user(username, password):
-            return render_template('signup.html', error="That username is already taken."), 409
-
-        # The /login route is currently disabled, so land on the front page instead
-        return redirect("/")
-
+    """Sign-up is Mastodon-only: proving control of an existing fediverse
+    account is the whole point of a passport, and it is the only sign-up path
+    that produces a real actor. Caddy basic-auth gates this route and /auth/*
+    while registrations are closed."""
     return render_template('signup.html')
 
 @app.route("/auth/mastodon", methods=["POST"])
@@ -244,6 +154,24 @@ def create_mastodon_account(host: str, credentials: dict):
 
 
 
+def load_page_dates():
+    """Site created/modified from git history, written onto the checkout by
+    scripts/generate-page-dates.sh at deploy time — the image has no .git. Falls
+    back to boot time when the file is absent (e.g. a bare `docker build`).
+    Box-wide convention: naustet-server ADR 0015."""
+    try:
+        dates = json.loads((storage.HERE / "page-dates.json").read_text())
+        return {"created": dates["created"], "modified": dates["modified"]}
+    except (OSError, ValueError, KeyError):
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        return {"created": now, "modified": now}
+
+PAGE_DATES = load_page_dates()
+
+@app.context_processor
+def inject_page_dates():
+    return {"page_dates": PAGE_DATES, "instance": instance}
+
 @app.route("/")
 def main():
     return render_template("index.html")
@@ -251,6 +179,24 @@ def main():
 @app.route("/robots.txt")
 def robots_txt():
     return app.send_static_file("robots.txt")
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    """Generated, not static: the public page set is one profile per account, so
+    a checked-in sitemap would go stale the moment somebody signs up."""
+    urls = [(f"{instance}/", "daily")]
+    urls += [(f"{instance}/@{username}", "weekly") for username in sorted(get_users())]
+
+    entries = "".join(
+        f"\n  <url>\n    <loc>{loc}</loc>\n"
+        f"    <lastmod>{PAGE_DATES['modified']}</lastmod>\n"
+        f"    <changefreq>{freq}</changefreq>\n  </url>"
+        for loc, freq in urls
+    )
+    document = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                f"{entries}\n</urlset>\n")
+    return Response(document, content_type="application/xml; charset=utf-8")
 
 # Cached robots.txt rules for the remote sites we fetch during verification,
 # so repeated verifications don't re-download robots.txt on every request.
@@ -283,10 +229,6 @@ def robots_allowed(url: str, session: requests.Session) -> bool:
 
     return cached[0].can_fetch(user_agent, url)
 
-@app.route("/test")
-def test():
-    return render_template("test.html")
-
 def as_create_activity(note: dict):
     """Outbox items are activities, not bare objects (ActivityPub §5.1)."""
     return {
@@ -304,7 +246,7 @@ def outbox(actor: str):
     if actor not in users:
         return jsonify({"Error": "User not found."}), 404
 
-    notes = json.loads(open(f"./actors/messages/{actor}.jsonld", "r", encoding="utf8").read())
+    notes = storage.read_json(storage.messages_file(actor))
     page_size = 5
     pages = max(1, -(-len(notes) // page_size))
     base = request.base_url
@@ -425,8 +367,8 @@ def resolve_inbox_type(username: str, activity: dict):
 def deliver_to_actor(username: str, remote_actor_url: str, activity: dict):
     """Sign an activity with the user's key and POST it to the remote
     actor's inbox. Skips quietly when no private key exists on disk."""
-    key_path = f"./actors/{username}_private.pem"
-    if not os.path.exists(key_path):
+    key_path = storage.private_key_file(username)
+    if not key_path.exists():
         print(f"No private key for '{username}'; cannot deliver {activity['type']} to {remote_actor_url}")
         return
 
@@ -440,7 +382,7 @@ def deliver_to_actor(username: str, remote_actor_url: str, activity: dict):
         if not inbox_url:
             print(f"Remote actor {remote_actor_url} has no inbox.")
             return
-        response = federation.deliver(activity, inbox_url, key_id, open(key_path, "rb").read(),
+        response = federation.deliver(activity, inbox_url, key_id, key_path.read_bytes(),
                                       myself_headers, timeout)
         print(f"Delivered {activity['type']} to {inbox_url}: {response.status_code}")
     except (requests.RequestException, ValueError) as error:
@@ -453,7 +395,7 @@ def serve_collection(actor: str, kind: str):
     if actor not in users:
         return jsonify({"Error": "User not found."}), 404
 
-    data = json.loads(open(f"./actors/{actor}_actor_{kind}.jsonld", "r").read())
+    data = storage.read_json(storage.actor_file(actor, kind))
     members = get_user(actor).get(kind, [])
     data["totalItems"] = len(members)
 
@@ -513,7 +455,7 @@ def user_post(user: str, note_id: str):
             "to": "https://www.w3.org/ns/activitystreams#Public"
         })
 
-    notes = json.loads(open(f"./actors/messages/{user}.jsonld", "r", encoding="utf8").read())
+    notes = storage.read_json(storage.messages_file(user))
     if request.url in notes:
         return ap_jsonify(notes[request.url])
 
@@ -552,17 +494,17 @@ def featured(user: str):
     if user not in users:
         return jsonify({"Error": "User not found."}), 404
 
-    data = json.loads(open(f"./actors/{user}_actor_featured.jsonld", "r").read())
+    data = storage.read_json(storage.actor_file(user, "featured"))
     # orderedItems must be a list of objects, not the id->note mapping
-    data["orderedItems"] = list(json.loads(open(f"./actors/messages/{user}.jsonld", "r", encoding="utf8").read()).values())
+    data["orderedItems"] = list(storage.read_json(storage.messages_file(user)).values())
     data["totalItems"] = len(data["orderedItems"])
 
     return ap_jsonify(data)
 
 def get_actor_jsonld(actor: str):
-    data = json.loads(open(f"./actors/{actor}_actor.jsonld", "r", encoding="utf8").read())
+    data = storage.read_json(storage.actor_file(actor))
     return data
-    user_data = json.loads(open(f"./actors/{actor}.jsonld", encoding="utf8").read())
+    user_data = storage.read_json(storage.user_file(actor))
 
     attachments = []
 
@@ -609,7 +551,7 @@ def profile(actor: str):
         return render_template("no_user.html", name=f"@{actor}@{domain}", shortname=f"@{actor}"), 404
     
     print(f"'{actor}' does exist.")
-    user_file = json.loads(open(f"./actors/{actor}.jsonld", "r").read())
+    user_file = storage.read_json(storage.user_file(actor))
     actor_jsonld = get_actor_jsonld(actor)
 
     links = user_file["links"]
@@ -874,13 +816,13 @@ def webfinger():
     return Response(json.dumps(response), content_type="application/jrd+json")
 
 def get_user(user: str):
-    return json.loads(open(f"./actors/{user}.jsonld", "r").read())
+    return storage.read_json(storage.user_file(user))
 
 def get_actor(actor: str):
-    return json.loads(open(f"./actors/{actor}_actor.jsonld", "r").read())
+    return storage.read_json(storage.actor_file(actor))
 
 def save_user(username: str, user: dict):
-    open(f"./actors/{username}.jsonld", "w").write(json.dumps(user))
+    storage.write_json(storage.user_file(username), user)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8081)

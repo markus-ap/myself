@@ -5,6 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}myself.social{% endblock %}</title>
 
+    {# Git-derived site dates (naustet-server ADR 0015); see load_page_dates(). #}
+    <meta name="date" content="{{ page_dates.created }}">
+    <meta name="last-modified" content="{{ page_dates.modified }}">
+    <meta property="article:published_time" content="{{ page_dates.created }}">
+    <meta property="article:modified_time" content="{{ page_dates.modified }}">
+    <link rel="canonical" href="{{ instance }}{{ request.path }}">
+    <script type="application/ld+json">{{ {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "myself.social",
+        "url": instance ~ "/",
+        "description": "One handle that vouches for all the others — a passport for your fediverse accounts.",
+        "inLanguage": "en-GB",
+        "dateCreated": page_dates.created,
+        "datePublished": page_dates.created,
+        "dateModified": page_dates.modified
+    } | tojson }}</script>
+
     <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
 
     {# Only the body regular is preloaded; the display face and the bold and

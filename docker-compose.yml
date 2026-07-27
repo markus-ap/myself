@@ -1,0 +1,25 @@
+name: myself            # pin the Compose project name — a dir rename can't orphan named volumes
+
+services:
+  myself:
+    build: .
+    restart: unless-stopped
+    mem_limit: 256m        # the box is small (3.7 GB / 2 vCPU) — always cap memory
+    # Published on the bridge gateway so central Caddy can dial 172.18.0.1:4024
+    # while the port stays off the public interface.
+    ports:
+      - "172.18.0.1:4024:8080"
+    env_file: .env
+    environment:
+      MYSELF_DATA: "/data"
+    volumes:
+      # Accounts, actor documents, outboxes and the actors' PRIVATE SIGNING KEYS.
+      # Losing this directory is not recoverable by redeploying — see ADR 0001.
+      # Dir mount (not a named volume) so it is trivially backed up and scp'd to
+      # a new box, matching karusell-ui's /var/lib/karusell.
+      - /var/lib/myself:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

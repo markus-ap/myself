@@ -164,6 +164,12 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# myself.social runtime state holding secrets - never commit
+# myself.social runtime state - accounts, actor documents and private signing
+# keys. Never commit; on the box this lives in /var/lib/myself (see ADR 0001).
+data/
 oauth_clients.json
 .secret_key
+followers_info.json
+
+# Generated on the checkout by scripts/generate-page-dates.sh at deploy time
+page-dates.json
