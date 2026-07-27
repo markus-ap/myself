@@ -5,19 +5,20 @@ Sign-up with Mastodon uses the instance's dynamic app registration
 verify_credentials to prove the person controls the Mastodon account.
 """
 
-import json, os, re, time
+import re, time
 from urllib.parse import urlencode
 
 import requests
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+import storage
+
 APP_NAME = "myself.social"
 APP_WEBSITE = "https://myself.social"
 # read:accounts is enough to call verify_credentials; never ask for more
 OAUTH_SCOPES = "read:accounts"
 OAUTH_TIMEOUT = 10
-CLIENTS_FILE = "oauth_clients.json"
 
 _hostname_re = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
 _username_re = re.compile(r"^[a-zA-Z0-9_]{1,64}$")
@@ -53,7 +54,7 @@ def valid_username(username: str) -> bool:
 def get_oauth_client(host: str, redirect_uri: str, headers: dict) -> dict:
     """Return cached OAuth client credentials for an instance, registering a
     new app on it the first time (or when the redirect URI changed)."""
-    clients = json.loads(open(CLIENTS_FILE).read()) if os.path.exists(CLIENTS_FILE) else {}
+    clients = storage.read_json(storage.CLIENTS_FILE) if storage.CLIENTS_FILE.exists() else {}
     client = clients.get(host)
     if client and client.get("redirect_uri") == redirect_uri:
         return client
@@ -70,7 +71,7 @@ def get_oauth_client(host: str, redirect_uri: str, headers: dict) -> dict:
     client = {"client_id": data["client_id"], "client_secret": data["client_secret"],
               "redirect_uri": redirect_uri}
     clients[host] = client
-    open(CLIENTS_FILE, "w").write(json.dumps(clients, indent=4))
+    storage.write_json(storage.CLIENTS_FILE, clients)
     return client
 
 
@@ -129,10 +130,6 @@ def generate_keypair():
     return private_pem, public_pem
 
 
-def _write(path: str, document: dict):
-    open(path, "w", encoding="utf8").write(json.dumps(document, indent=4, ensure_ascii=False))
-
-
 def _link_attachment(link: str, verified_at):
     domain = link.split("//")[-1].split("/")[0]
     return {
@@ -157,10 +154,9 @@ def provision_account(username: str, instance_base: str, links=None, verified_li
     published = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
     private_pem, public_pem = generate_keypair()
-    with open(f"./actors/{username}_private.pem", "wb") as key_file:
-        key_file.write(private_pem)
+    storage.private_key_file(username).write_bytes(private_pem)
 
-    _write(f"./actors/{username}.jsonld", {
+    storage.write_json(storage.user_file(username), {
         "@id": actor_id,
         "profile": actor_id,
         "outbox": f"{actor_id}/outbox",
@@ -169,7 +165,7 @@ def provision_account(username: str, instance_base: str, links=None, verified_li
         "followers": [],
     })
 
-    _write(f"./actors/{username}_actor.jsonld", {
+    storage.write_json(storage.actor_file(username), {
         "@context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
         "@id": actor_id,
         "id": actor_id,
@@ -195,7 +191,7 @@ def provision_account(username: str, instance_base: str, links=None, verified_li
     })
 
     for kind in ("followers", "following"):
-        _write(f"./actors/{username}_actor_{kind}.jsonld", {
+        storage.write_json(storage.actor_file(username, kind), {
             "@context": "https://www.w3.org/ns/activitystreams",
             "id": f"{actor_id}/{kind}",
             "type": "OrderedCollection",
@@ -203,7 +199,7 @@ def provision_account(username: str, instance_base: str, links=None, verified_li
             "first": f"{actor_id}/{kind}?page=1",
         })
 
-    _write(f"./actors/{username}_actor_featured.jsonld", {
+    storage.write_json(storage.actor_file(username, "featured"), {
         "@context": "https://www.w3.org/ns/activitystreams",
         "id": f"{actor_id}/collections/featured",
         "type": "OrderedCollection",
@@ -211,4 +207,4 @@ def provision_account(username: str, instance_base: str, links=None, verified_li
         "orderedItems": [],
     })
 
-    _write(f"./actors/messages/{username}.jsonld", {})
+    storage.write_json(storage.messages_file(username), {})

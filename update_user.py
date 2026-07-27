@@ -8,6 +8,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 
+import storage
+
 def create_signature(key, data):
     if isinstance(key, str):
         key = key.encode('utf-8')
@@ -113,10 +115,10 @@ def followers_followers(user: str = "https://skvip.lol/users/markus"):
         "servers": list(all_servers)        
     }
     
-    open("followers_info.json", "w").write(json.dumps(result))
+    storage.write_json(storage.FOLLOWERS_INFO_FILE, result, indent=None)
 
 def update_user(user: str):
-    private_key = open(f"./actors/{user}_private.pem", "rb").read()
+    private_key = storage.private_key_file(user).read_bytes()
 
     user = f"https://myself.social/b/{user}.json"
     user = json.loads(requests.get(user).text)
@@ -133,7 +135,7 @@ def update_user(user: str):
         "object": user
     }
 
-    servers = json.loads(open("followers_info.json", "r").read())["servers"]
+    servers = storage.read_json(storage.FOLLOWERS_INFO_FILE)["servers"]
     server_count = len(servers)
 
     hosts = ["skvip.lol", "prosa.skvip.lol", "pixelfed.babb.no", "bookwyrm.social"]
@@ -153,7 +155,7 @@ def update_user(user: str):
         print(response.status_code)
 
 def delete_message():
-    private_key = open("./actors/private.pem", "rb").read()
+    private_key = storage.private_key_file("markus").read_bytes()
 
     followers = get_followers("https://skvip.lol/users/markus")
     servers = set([ urlparse(follower).netloc for follower in followers ])
@@ -180,8 +182,8 @@ def follower_servers(user: str):
     return set([urlparse(follower).netloc for follower in followers])
 
 def broadcast_messages(user: str):
-    notes = json.loads(open(f"./actors/messages/{user}.jsonld", "r", encoding="utf8").read())
-    private_key = open(f"./actors/{user}_private.pem", "rb").read()
+    notes = storage.read_json(storage.messages_file(user))
+    private_key = storage.private_key_file(user).read_bytes()
 
     for server in ["skvip.lol"]: # follower_servers("https://skvip.lol/users/markus"):
         url = f"https://{server}/inbox"
